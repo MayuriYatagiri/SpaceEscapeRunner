@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const SHIP_WIDTH = 60;
+const SHIP_WIDTH = 85;
 const SHIP_HEIGHT = 60;
 const ASTEROID_SIZE = 110; // Massive cosmic hazard boundary
 
@@ -147,8 +147,23 @@ export default function App() {
 
       {!gameOver ? (
         <>
-          {/* Giant Asteroid Obstacle */}
-          <View style={[styles.asteroid, { top: asteroidPos.y, left: asteroidPos.x }]} />
+          {/* NATURAL JAGGED ASTEROID WITH TEXTURED CRATERS */}
+          <View style={[styles.asteroidContainer, { top: asteroidPos.y, left: asteroidPos.x }]}>
+            {/* Layer 1: Jagged outer rock fragments to break the perfect circle shape */}
+            <View style={styles.asteroidJaggedShard} />
+            
+            {/* Layer 2: Main textured core body */}
+            <View style={styles.asteroidCoreBody}>
+              {/* Layer 3: Surface Impact Craters */}
+              <View style={[styles.crater, { top: '20%', left: '25%', width: 22, height: 18 }]} />
+              <View style={[styles.crater, { top: '55%', left: '15%', width: 14, height: 14 }]} />
+              <View style={[styles.crater, { top: '30%', left: '60%', width: 28, height: 24 }]} />
+              <View style={[styles.crater, { top: '65%', left: '55%', width: 18, height: 15 }]} />
+              
+              {/* Small surface ridge highlights */}
+              <View style={styles.rockRidge} />
+            </View>
+          </View>
 
           {/* HIGH-TECH STARFIGHTER SPACESHIP SHIP CONTAINER */}
           <View style={[styles.shipContainer, { left: shipX }]}>
@@ -250,14 +265,55 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  asteroid: {
+  /* --- NATURAL TEXTURED ASTEROID STYLES --- */
+  asteroidContainer: {
     position: 'absolute',
     width: ASTEROID_SIZE,
     height: ASTEROID_SIZE,
-    backgroundColor: '#483d3d',
-    borderRadius: 55,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  asteroidCoreBody: {
+    width: '90%',
+    height: '90%',
+    backgroundColor: '#524545', // Dark carbonaceous rock base hue
+    borderRadius: 50,           // Base roundness
     borderWidth: 4,
-    borderColor: '#332a2a',
+    borderColor: '#3a3030',     // Shadowed outer crust line
+    position: 'relative',
+    overflow: 'hidden',         // Clips craters to the asteroid boundary
+    zIndex: 2,
+  },
+  asteroidJaggedShard: {
+    position: 'absolute',
+    width: '92%',
+    height: '92%',
+    backgroundColor: '#473c3c', // Secondary shading rock layer
+    borderRadius: 38,           // Mismatched radius breaks symmetry
+    transform: [{ rotate: '35deg' }], // Rotated to create sharp, rocky edges
+    borderWidth: 3,
+    borderColor: '#2d2525',
+    zIndex: 1,
+  },
+  crater: {
+    position: 'absolute',
+    backgroundColor: '#2d2525', // Deep recessed shadow interior
+    borderRadius: 50,
+    borderBottomWidth: 2,
+    borderBottomColor: '#6e5d5d', // Sunlit rocky crater rim highlight
+    opacity: 0.85,
+  },
+  rockRidge: {
+    position: 'absolute',
+    top: '15%',
+    right: '10%',
+    width: '40%',
+    height: '40%',
+    borderLeftWidth: 2,
+    borderTopWidth: 2,
+    borderColor: '#6e5d5d',     // Surface fault line ridge definition
+    borderRadius: 20,
+    opacity: 0.4,
   },
   /* --- STARFIGHTER STRUCTURAL LAYOUT DESIGN --- */
   shipContainer: {
@@ -305,42 +361,42 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   leftWing: {
-    left: -2,
-    borderTopWidth: 26,
+    left: 4,                  // Pushed outwards toward the new container boundaries
+    borderTopWidth: 28,
     borderTopColor: 'transparent',
-    borderRightWidth: 20,
-    borderRightColor: '#0f172a', // Stepped stabilizer geometry silhouette
+    borderRightWidth: 32,      // Widened from 20 to extend the wing surface area
+    borderRightColor: '#0f172a',
     borderBottomWidth: 0,
     borderBottomColor: 'transparent',
     borderLeftWidth: 0,
     borderLeftColor: 'transparent',
   },
   rightWing: {
-    right: -2,
-    borderTopWidth: 26,
+    right: 4,                 // Pushed outwards toward the new container boundaries
+    borderTopWidth: 28,
     borderTopColor: 'transparent',
     borderRightWidth: 0,
     borderRightColor: 'transparent',
     borderBottomWidth: 0,
     borderBottomColor: 'transparent',
-    borderLeftWidth: 20,
+    borderLeftWidth: 32,      // Widened from 20 to match symmetrically
     borderLeftColor: '#0f172a',
   },
   blasterLeft: {
     position: 'absolute',
-    left: -4,
+    left: -14,                 // Shifted out to align with the wider left wingtip
     top: 22,
     width: 4,
-    height: 12,
+    height: 14,
     backgroundColor: '#38bdf8',
     borderRadius: 2,
   },
   blasterRight: {
     position: 'absolute',
-    right: -4,
+    right: -14,                // Shifted out to align with the wider right wingtip
     top: 22,
     width: 4,
-    height: 12,
+    height: 14,
     backgroundColor: '#38bdf8',
     borderRadius: 2,
   },
