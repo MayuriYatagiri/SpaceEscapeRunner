@@ -249,17 +249,126 @@ const styles = StyleSheet.create({
     borderColor: '#3a2f2f',
   },
   ship: {
+    /* --- ADVANCED SPACESHIP DESIGN STYLES --- */
+  shipContainer: {
     position: 'absolute',
     bottom: 120,
     width: SHIP_WIDTH,
     height: SHIP_HEIGHT,
-    backgroundColor: '#3b82f6', // Your core spaceship color
-    borderTopLeftRadius: 30,    // Creates the aerodynamic pointed nosecone
-    borderTopRightRadius: 30,
-    borderBottomLeftRadius: 10,  // Stabilizer fin contours
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shipCore: {
+    width: 26,
+    height: 52,
+    backgroundColor: '#1e293b', // Sleek titanium dark armor plating
+    borderTopLeftRadius: 15,    // Sharp aerodynamic forward nosecone
+    borderTopRightRadius: 15,
+    borderBottomLeftRadius: 5,
+    borderBottomRightRadius: 5,
+    borderWidth: 2,
+    borderColor: '#38bdf8',     // Neon energy matrix trim detailing
+    position: 'relative',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  cockpit: {
+    position: 'absolute',
+    top: 10,
+    width: 10,
+    height: 18,
+    backgroundColor: '#06b6d4', // Glowing cyan energy canopy shield
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+    borderWidth: 1,
+    borderColor: '#e0f2fe',
+    shadowColor: '#00f0ff',     // Neon bloom glow radius
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+  },
+  wing: {
+    position: 'absolute',
+    bottom: 4,
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    zIndex: 1,
+  },
+  leftWing: {
+    left: -2,
+    borderTopWidth: 26,
+    borderTopColor: 'transparent',
+    borderRightWidth: 20,
+    borderRightColor: '#0f172a', // Matte stealth dark-wing composite
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
+    borderLeftWidth: 0,
+    borderLeftColor: 'transparent',
+  },
+  rightWing: {
+    right: -2,
+    borderTopWidth: 26,
+    borderTopColor: 'transparent',
+    borderRightWidth: 0,
+    borderRightColor: 'transparent',
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
+    borderLeftWidth: 20,
+    borderLeftColor: '#0f172a', // Symmetrical starfighter silhouette
+  },
+  blasterLeft: {
+    position: 'absolute',
+    left: -4,
+    top: 22,
+    width: 4,
+    height: 12,
+    backgroundColor: '#38bdf8',
+    borderRadius: 2,
+  },
+  blasterRight: {
+    position: 'absolute',
+    right: -4,
+    top: 22,
+    width: 4,
+    height: 12,
+    backgroundColor: '#38bdf8',
+    borderRadius: 2,
+  },
+  thrusterAssembly: {
+    position: 'absolute',
+    bottom: -18,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    width: '100%',
+    zIndex: 0,
+  },
+  flameBase: {
+    backgroundColor: '#ff7700', // Incandescent plasma engine flame core
+    borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
-    borderWidth: 3,
-    borderColor: '#60a5fa',     // Shield highlighting border
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+    marginHorizontal: 1,
+    shadowColor: '#ff3700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+  },
+  centerFlame: {
+    width: 10,
+    height: 20,
+    backgroundColor: '#ff9900', // High velocity focus center plume
+  },
+  sideFlame: {
+    width: 5,
+    height: 12,
+    opacity: 0.85,
+  },     // Shield highlighting border
   },
   controlsContainer: {
     position: 'absolute',
