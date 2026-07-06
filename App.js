@@ -1,486 +1,379 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Dimensions, TouchableOpacity, Animated } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  TouchableOpacity, 
+  Dimensions, 
+  StatusBar 
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const SHIP_WIDTH = 85;
-const SHIP_HEIGHT = 60;
-const ASTEROID_SIZE = 110; // Massive cosmic hazard boundary
+// Dimensions Configuration
+const SHIP_WIDTH = 50;
+const SHIP_HEIGHT = 50;
+// 🚀 MASSIVE SCALE UP: Changed from 65 to 110 pixels to severely restrict safe zones!
+const ASTEROID_SIZE = 110; 
+const MOVEMENT_STEP = 35; 
+
+const ARENA_HEIGHT = SCREEN_HEIGHT - 350; 
+const SHIP_Y = ARENA_HEIGHT - SHIP_HEIGHT - 10; 
+const HIGH_SCORE_KEY = '@space_escape_highscore';
 
 export default function App() {
-  // --- ANIMATION STATES (BACKGROUND) ---
-  const scrollY = useRef(new Animated.Value(0)).current;
-
-  // --- GAME STATES ---
-  const [shipX, setShipX] = useState((SCREEN_WIDTH - SHIP_WIDTH) / 2);
-  const [asteroidPos, setAsteroidPos] = useState({ x: Math.random() * (SCREEN_WIDTH - ASTEROID_SIZE), y: -ASTEROID_SIZE });
+  const [gameState, setGameState] = useState('PLAYING'); 
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
-  const [gameOver, setGameOver] = useState(false);
+  
+  const [shipX, setShipX] = useState((SCREEN_WIDTH / 2) - (SHIP_WIDTH / 2));
+  const [asteroidX, setAsteroidX] = useState(Math.random() * (SCREEN_WIDTH - ASTEROID_SIZE));
+  const [asteroidY, setAsteroidY] = useState(0);
 
-  // --- BACKGROUND INFINITE SCROLL LOOP ---
   useEffect(() => {
-    const startBackgroundScroll = () => {
-      scrollY.setValue(0);
-      Animated.timing(scrollY, {
-        toValue: SCREEN_HEIGHT,
-        duration: 7000, // Warp velocity configuration
-        useNativeDriver: true, // Offloads to UI thread for seamless 60fps
-      }).start(() => startBackgroundScroll());
-    };
-    startBackgroundScroll();
-  }, [scrollY]);
-
-  // Interpolate movement loops for the dual tiling background wrappers
-  const translateTileA = scrollY.interpolate({
-    inputRange: [0, SCREEN_HEIGHT],
-    outputRange: [0, SCREEN_HEIGHT],
-  });
-  const translateTileB = scrollY.interpolate({
-    inputRange: [0, SCREEN_HEIGHT],
-    outputRange: [-SCREEN_HEIGHT, 0],
-  });
-
-  // --- HIGH SCORE PERSISTENCE ---
-  useEffect(() => {
-    loadHighScore();
+    loadSavedHighScore();
   }, []);
 
-  const loadHighScore = async () => {
+  const loadSavedHighScore = async () => {
     try {
-      const savedScore = await AsyncStorage.getItem('space_high_score');
-      if (savedScore !== null) setHighScore(parseInt(savedScore, 10));
-    } catch (e) {
-      console.log('Failed to load high score.');
+      const savedValue = await AsyncStorage.getItem(HIGH_SCORE_KEY);
+      if (savedValue !== null) {
+        setHighScore(parseInt(savedValue, 10));
+      }
+    } catch (error) {
+      console.log('Error reading high score:', error);
     }
   };
 
-  const saveHighScore = async (newHigh) => {
-    try {
-      await AsyncStorage.setItem('space_high_score', newHigh.toString());
-    } catch (e) {
-      console.log('Failed to save high score.');
-    }
-  };
-
-  // --- MAIN PHYSICS GAME ENGINE ---
   useEffect(() => {
-    if (gameOver) return;
+    if (gameState !== 'PLAYING') return;
 
     const gameLoop = setInterval(() => {
-      setAsteroidPos((prev) => {
-        const nextY = prev.y + 8; // Falling linear velocity trajectory step
+      setAsteroidY((currentY) => {
+        // ⚡ SPEED BOOST: Increased falling velocity from 7 to 9 pixels per tick for less reaction time
+        const nextY = currentY + 9; 
 
-        // Check if asteroid passed completely off screen (Point cleared!)
-        if (nextY > SCREEN_HEIGHT) {
-          setScore((s) => s + 1);
-          return {
-            x: Math.random() * (SCREEN_WIDTH - ASTEROID_SIZE),
-            y: -ASTEROID_SIZE,
-          };
+        if (nextY >= ARENA_HEIGHT - ASTEROID_SIZE) {
+          setAsteroidX(Math.random() * (SCREEN_WIDTH - ASTEROID_SIZE));
+          setScore((prevScore) => prevScore + 1);
+          return 0; 
         }
-
-        // --- AXIAL COLLISION HANDLING ENGINE ---
-        const shipY = SCREEN_HEIGHT - 160; // Locked coordinate for ship plane boundary
-        const asteroidCenterX = prev.x + ASTEROID_SIZE / 2;
-        const asteroidCenterY = prev.y + ASTEROID_SIZE / 2;
-        const shipCenterX = shipX + SHIP_WIDTH / 2;
-        const shipCenterY = shipY + SHIP_HEIGHT / 2;
-
-        const distance = Math.sqrt(
-          Math.pow(asteroidCenterX - shipCenterX, 2) + Math.pow(asteroidCenterY - shipCenterY, 2)
-        );
-
-        // Dynamic collision boundary factoring the radius profiles
-        if (distance < (ASTEROID_SIZE / 2 + SHIP_WIDTH / 3)) {
-          setGameOver(true);
-          clearInterval(gameLoop);
-        }
-
-        return { x: prev.x, y: nextY };
+        return nextY; 
       });
-    }, 33); // Ticks at roughly 30 execution intervals per second
+    }, 33); 
 
     return () => clearInterval(gameLoop);
-  }, [shipX, gameOver]);
+  }, [gameState]);
 
-  // --- CONTROLLER MOVEMENT COMMANDS ---
-  const moveLeft = () => {
-    if (gameOver) return;
-    setShipX((x) => Math.max(0, x - 30));
-  };
+  useEffect(() => {
+    if (gameState !== 'PLAYING') return;
 
-  const moveRight = () => {
-    if (gameOver) return;
-    setShipX((x) => Math.min(SCREEN_WIDTH - SHIP_WIDTH, x + 30));
+    const shipLeft = shipX;
+    const shipRight = shipX + SHIP_WIDTH;
+    const shipTop = SHIP_Y;
+    const shipBottom = SHIP_Y + SHIP_HEIGHT;
+
+    const asteroidLeft = asteroidX;
+    const asteroidRight = asteroidX + ASTEROID_SIZE;
+    const asteroidTop = asteroidY;
+    const asteroidBottom = asteroidY + ASTEROID_SIZE;
+
+    if (
+      shipLeft < asteroidRight &&
+      shipRight > asteroidLeft &&
+      shipTop < asteroidBottom &&
+      shipBottom > asteroidTop
+    ) {
+      handleGameOver();
+    }
+  }, [shipX, asteroidX, asteroidY, gameState]);
+
+  const handleGameOver = async () => {
+    setGameState('GAME_OVER');
+    if (score > highScore) {
+      setHighScore(score);
+      try {
+        await AsyncStorage.setItem(HIGH_SCORE_KEY, score.toString());
+      } catch (error) {
+        console.log('Failed to save record score:', error);
+      }
+    }
   };
 
   const restartGame = () => {
-    if (score > highScore) {
-      setHighScore(score);
-      saveHighScore(score);
-    }
     setScore(0);
-    setAsteroidPos({ x: Math.random() * (SCREEN_WIDTH - ASTEROID_SIZE), y: -ASTEROID_SIZE });
-    setShipX((SCREEN_WIDTH - SHIP_WIDTH) / 2);
-    setGameOver(false);
+    setShipX((SCREEN_WIDTH / 2) - (SHIP_WIDTH / 2));
+    setAsteroidY(0);
+    setAsteroidX(Math.random() * (SCREEN_WIDTH - ASTEROID_SIZE));
+    setGameState('PLAYING');
+  };
+
+  const moveLeft = () => {
+    if (gameState !== 'PLAYING') return;
+    setShipX((currentX) => Math.max(0, currentX - MOVEMENT_STEP));
+  };
+
+  const moveRight = () => {
+    if (gameState !== 'PLAYING') return;
+    setShipX((currentX) => Math.min(SCREEN_WIDTH - SHIP_WIDTH, currentX + MOVEMENT_STEP));
   };
 
   return (
     <View style={styles.container}>
-      {/* LAYER 1: Hardware-Accelerated Scrolling Starfield Background */}
-      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-        <Animated.View style={[styles.starTile, { transform: [{ translateY: translateTileA }] }]}>
-          <StarFieldPattern />
-        </Animated.View>
-        <Animated.View style={[styles.starTile, { transform: [{ translateY: translateTileB }] }]}>
-          <StarFieldPattern />
-        </Animated.View>
+      <StatusBar barStyle="light-content" />
+
+      {/* HEADER HUD */}
+      <View style={styles.header}>
+        <Text style={styles.titleText}>SPACE ESCAPE</Text>
+        <Text style={styles.subtitleText}>ARMAGEDDON MODE</Text>
       </View>
 
-      {/* LAYER 2: Game HUD Metrics Interface */}
-      <View style={styles.hudHeader}>
-        <Text style={styles.scoreText}>Score: {score}</Text>
-        <Text style={styles.highScoreText}>Best: {highScore}</Text>
+      {/* PLAYABLE GAME ARENA */}
+      <View style={[styles.gameArena, { height: ARENA_HEIGHT }]}>
+        
+        {gameState === 'PLAYING' ? (
+          <>
+            <View style={styles.hudRow}>
+              <Text style={styles.liveScore}>SCORE: {score}</Text>
+              <Text style={styles.recordScore}>BEST: {highScore}</Text>
+            </View>
+
+            {/* UPGRADED MASSIVE ROUND TEXTURED ASTEROID */}
+            <View style={[styles.asteroidBase, { left: asteroidX, top: asteroidY }]}>
+              {/* Scaled-up crater layouts for the giant asteroid crust texture */}
+              <View style={[styles.crater, styles.craterGiant, { top: 15, left: 25 }]} />
+              <View style={[styles.crater, styles.craterLarge, { top: 25, right: 20 }]} />
+              <View style={[styles.crater, styles.craterMedium, { bottom: 25, left: 20 }]} />
+              <View style={[styles.crater, styles.craterLarge, { bottom: 15, right: 30 }]} />
+            </View>
+
+            {/* SPACESHIP */}
+            <View style={[styles.spaceshipContainer, { left: shipX, top: SHIP_Y }]}>
+              <View style={styles.noseCone} />
+              <View style={styles.fuselage} />
+              <View style={styles.leftStabilizer} />
+              <View style={styles.rightStabilizer} />
+            </View>
+          </>
+        ) : (
+          <View style={styles.gameOverOverlay}>
+            <Text style={styles.failedText}>MISSION FAILED</Text>
+            <Text style={styles.finalScoreText}>SCORE ACQUIRED: {score}</Text>
+            
+            {score >= highScore && score > 0 ? (
+              <Text style={styles.newRecordNotice}>🔥 NEW HIGH SCORE! 🔥</Text>
+            ) : (
+              <Text style={styles.bestRecordText}>CURRENT RECORD: {highScore}</Text>
+            )}
+
+            <TouchableOpacity style={styles.restartBtn} onPress={restartGame}>
+              <Text style={styles.restartBtnText}>LAUNCH AGAIN</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
       </View>
 
-      {!gameOver ? (
-        <>
-          {/* NATURAL JAGGED ASTEROID WITH TEXTURED CRATERS */}
-          <View style={[styles.asteroidContainer, { top: asteroidPos.y, left: asteroidPos.x }]}>
-            {/* Layer 1: Jagged outer rock fragments to break the perfect circle shape */}
-            <View style={styles.asteroidJaggedShard} />
-            
-            {/* Layer 2: Main textured core body */}
-            <View style={styles.asteroidCoreBody}>
-              {/* Layer 3: Surface Impact Craters */}
-              <View style={[styles.crater, { top: '20%', left: '25%', width: 22, height: 18 }]} />
-              <View style={[styles.crater, { top: '55%', left: '15%', width: 14, height: 14 }]} />
-              <View style={[styles.crater, { top: '30%', left: '60%', width: 28, height: 24 }]} />
-              <View style={[styles.crater, { top: '65%', left: '55%', width: 18, height: 15 }]} />
-              
-              {/* Small surface ridge highlights */}
-              <View style={styles.rockRidge} />
-            </View>
-          </View>
+      {/* ACTION PANEL CONTROL DECK */}
+      <View style={styles.controlPanel}>
+        <TouchableOpacity style={styles.actionButton} onPress={moveLeft}>
+          <Text style={styles.actionButtonText}>◀ MOVE LEFT</Text>
+        </TouchableOpacity>
 
-          {/* HIGH-TECH STARFIGHTER SPACESHIP SHIP CONTAINER */}
-          <View style={[styles.shipContainer, { left: shipX }]}>
-            {/* Structural Wings */}
-            <View style={[styles.wing, styles.leftWing]} />
-            <View style={[styles.wing, styles.rightWing]} />
-            
-            {/* Main Armored Hull Composite */}
-            <View style={styles.shipCore}>
-              {/* Mounted Laser Blasters */}
-              <View style={styles.blasterLeft} />
-              <View style={styles.blasterRight} />
-              
-              {/* Radiant Cyan Pilot Cockpit */}
-              <View style={styles.cockpit} />
-            </View>
-
-            {/* TRIPLE AFTERBURNER FLARE VECTOR ARRAY */}
-            <View style={styles.thrusterAssembly}>
-              <View style={[styles.flameBase, styles.sideFlame]} />
-              <View style={[styles.flameBase, styles.centerFlame]} />
-              <View style={[styles.flameBase, styles.sideFlame]} />
-            </View>
-          </View>
-
-          {/* User Input Dynamic Control Pads */}
-          <View style={styles.controlsContainer}>
-            <TouchableOpacity style={styles.btn} onPress={moveLeft}>
-              <Text style={styles.btnText}>◀</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.btn} onPress={moveRight}>
-              <Text style={styles.btnText}>▶</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      ) : (
-        <View style={styles.gameOverScreen}>
-          <Text style={styles.gameOverTitle}>GAME OVER</Text>
-          <Text style={styles.gameOverSub}>The Asteroid crushed your hull!</Text>
-          <TouchableOpacity style={styles.restartBtn} onPress={restartGame}>
-            <Text style={styles.restartBtnText}>TRY AGAIN</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        <TouchableOpacity style={styles.actionButton} onPress={moveRight}>
+          <Text style={styles.actionButtonText}>MOVE RIGHT ▶</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
-// Seamless Repeatable Vector Constellation Pattern
-function StarFieldPattern() {
-  return (
-    <View style={styles.starField}>
-      <View style={[styles.star, { top: '12%', left: '15%' }]} />
-      <View style={[styles.star, { top: '28%', left: '82%', width: 3, height: 3 }]} />
-      <View style={[styles.star, { top: '48%', left: '38%' }]} />
-      <View style={[styles.star, { top: '63%', left: '74%', opacity: 0.4 }]} />
-      <View style={[styles.star, { top: '78%', left: '22%', width: 4, height: 4 }]} />
-      <View style={[styles.star, { top: '88%', left: '92%' }]} />
-    </View>
-  );
-}
-
+// GRAPHICS STYLE MATRIX
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#060612', // Deep space visual base hue
+    backgroundColor: '#070714',
+    justifyContent: 'space-between',
+    paddingVertical: 50,
   },
-  starTile: {
-    position: 'absolute',
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+  header: {
+    alignItems: 'center',
   },
-  starField: {
-    flex: 1,
+  titleText: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 4,
+  },
+  subtitleText: {
+    fontSize: 14,
+    color: '#FF0055', // Threat red subtitle color
+    letterSpacing: 4,
+    marginTop: 2,
+  },
+  gameArena: {
+    width: '100%',
     position: 'relative',
+    backgroundColor: '#0D0D26', 
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: '#1A1A3A',
   },
-  star: {
+  hudRow: {
     position: 'absolute',
-    width: 2,
-    height: 2,
-    backgroundColor: '#ffffff',
-    borderRadius: 50,
-    opacity: 0.75,
-  },
-  hudHeader: {
-    paddingTop: 55,
-    paddingHorizontal: 25,
+    top: 20,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     zIndex: 10,
   },
-  scoreText: {
-    color: '#ffffff',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  highScoreText: {
-    color: '#00f0ff',
+  liveScore: {
+    color: '#00F5D4',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '900',
+    letterSpacing: 1,
   },
-  /* --- NATURAL TEXTURED ASTEROID STYLES --- */
-  asteroidContainer: {
+  recordScore: {
+    color: '#FFE600',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  asteroidBase: {
     position: 'absolute',
     width: ASTEROID_SIZE,
     height: ASTEROID_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  asteroidCoreBody: {
-    width: '90%',
-    height: '90%',
-    backgroundColor: '#524545', // Dark carbonaceous rock base hue
-    borderRadius: 50,           // Base roundness
-    borderWidth: 4,
-    borderColor: '#3a3030',     // Shadowed outer crust line
-    position: 'relative',
-    overflow: 'hidden',         // Clips craters to the asteroid boundary
-    zIndex: 2,
-  },
-  asteroidJaggedShard: {
-    position: 'absolute',
-    width: '92%',
-    height: '92%',
-    backgroundColor: '#473c3c', // Secondary shading rock layer
-    borderRadius: 38,           // Mismatched radius breaks symmetry
-    transform: [{ rotate: '35deg' }], // Rotated to create sharp, rocky edges
+    backgroundColor: '#635654', // Darker density rock gray
+    borderRadius: ASTEROID_SIZE / 2, // Maintains perfect circle mapping
     borderWidth: 3,
-    borderColor: '#2d2525',
-    zIndex: 1,
+    borderColor: '#3D3332', 
   },
   crater: {
     position: 'absolute',
-    backgroundColor: '#2d2525', // Deep recessed shadow interior
-    borderRadius: 50,
-    borderBottomWidth: 2,
-    borderBottomColor: '#6e5d5d', // Sunlit rocky crater rim highlight
-    opacity: 0.85,
+    backgroundColor: '#2E2524', // Deep crater shadow
+    borderRadius: 100,
   },
-  rockRidge: {
-    position: 'absolute',
-    top: '15%',
-    right: '10%',
-    width: '40%',
-    height: '40%',
-    borderLeftWidth: 2,
-    borderTopWidth: 2,
-    borderColor: '#6e5d5d',     // Surface fault line ridge definition
-    borderRadius: 20,
-    opacity: 0.4,
+  craterGiant: {
+    width: 26,
+    height: 26,
   },
-  /* --- STARFIGHTER STRUCTURAL LAYOUT DESIGN --- */
-  shipContainer: {
+  craterLarge: {
+    width: 18,
+    height: 18,
+  },
+  craterMedium: {
+    width: 12,
+    height: 12,
+  },
+  spaceshipContainer: {
     position: 'absolute',
-    bottom: 120, // Lower viewport positioning plane alignment
     width: SHIP_WIDTH,
     height: SHIP_HEIGHT,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  shipCore: {
-    width: 26,
-    height: 52,
-    backgroundColor: '#1e293b', // High tensile titanium dark plating color
-    borderTopLeftRadius: 15,    // Aerodynamic continuous nosecone contour
-    borderTopRightRadius: 15,
-    borderBottomLeftRadius: 5,
-    borderBottomRightRadius: 5,
-    borderWidth: 2,
-    borderColor: '#38bdf8',     // Glowing defense grid tracking border lines
-    position: 'relative',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  cockpit: {
-    position: 'absolute',
-    top: 10,
-    width: 10,
-    height: 18,
-    backgroundColor: '#06b6d4', // Translucent pilot view canopy matrix
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    borderBottomLeftRadius: 3,
-    borderBottomRightRadius: 3,
-    borderWidth: 1,
-    borderColor: '#e0f2fe',
-  },
-  wing: {
-    position: 'absolute',
-    bottom: 4,
+  noseCone: {
     width: 0,
     height: 0,
-    backgroundColor: 'transparent',
     borderStyle: 'solid',
-    zIndex: 1,
-  },
-  leftWing: {
-    left: 4,                  // Pushed outwards toward the new container boundaries
-    borderTopWidth: 28,
-    borderTopColor: 'transparent',
-    borderRightWidth: 32,      // Widened from 20 to extend the wing surface area
-    borderRightColor: '#0f172a',
-    borderBottomWidth: 0,
-    borderBottomColor: 'transparent',
-    borderLeftWidth: 0,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderBottomWidth: 14,
     borderLeftColor: 'transparent',
-  },
-  rightWing: {
-    right: 4,                 // Pushed outwards toward the new container boundaries
-    borderTopWidth: 28,
-    borderTopColor: 'transparent',
-    borderRightWidth: 0,
     borderRightColor: 'transparent',
-    borderBottomWidth: 0,
-    borderBottomColor: 'transparent',
-    borderLeftWidth: 32,      // Widened from 20 to match symmetrically
-    borderLeftColor: '#0f172a',
+    borderBottomColor: '#00F5D4',
   },
-  blasterLeft: {
-    position: 'absolute',
-    left: -14,                 // Shifted out to align with the wider left wingtip
-    top: 22,
-    width: 4,
-    height: 14,
-    backgroundColor: '#38bdf8',
-    borderRadius: 2,
+  fuselage: {
+    width: 20,
+    height: 26,
+    backgroundColor: '#4EA8DE',
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+    zIndex: 2,
   },
-  blasterRight: {
+  leftStabilizer: {
     position: 'absolute',
-    right: -14,                // Shifted out to align with the wider right wingtip
-    top: 22,
-    width: 4,
-    height: 14,
-    backgroundColor: '#38bdf8',
-    borderRadius: 2,
+    bottom: 0,
+    left: 4,
+    width: 8,
+    height: 16,
+    backgroundColor: '#7209B7',
+    borderTopLeftRadius: 6,
+    transform: [{ rotate: '-12deg' }],
   },
-  thrusterAssembly: {
+  rightStabilizer: {
     position: 'absolute',
-    bottom: -18,
+    bottom: 0,
+    right: 4,
+    width: 8,
+    height: 16,
+    backgroundColor: '#7209B7',
+    borderTopRightRadius: 6,
+    transform: [{ rotate: '12deg' }],
+  },
+  controlPanel: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    width: '100%',
-    zIndex: 0,
-  },
-  flameBase: {
-    backgroundColor: '#ff7700', // Searing plasma core coloration
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    borderTopLeftRadius: 2,
-    borderTopRightRadius: 2,
-    marginHorizontal: 1,
-  },
-  centerFlame: {
-    width: 10,
-    height: 20,
-    backgroundColor: '#ff9900', // Extended afterburner focus column
-  },
-  sideFlame: {
-    width: 5,
-    height: 12,
-    opacity: 0.85,
-  },
-  /* --- NAVIGATION CONTROLS OVERLAYS --- */
-  controlsContainer: {
-    position: 'absolute',
-    bottom: 35,
-    flexDirection: 'row',
-    width: '100%',
     justifyContent: 'space-around',
-    paddingHorizontal: 20,
+    width: '100%',
+    paddingHorizontal: 25,
   },
-  btn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    width: 110,
-    height: 65,
-    justifyContent: 'center',
+  actionButton: {
+    backgroundColor: '#12122C',
+    borderColor: '#FF0055',
+    borderWidth: 1.5,
+    paddingVertical: 15,
+    borderRadius: 12,
+    width: '46%',
     alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
   },
-  btnText: {
-    color: '#ffffff',
-    fontSize: 28,
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
+    letterSpacing: 1,
   },
-  gameOverScreen: {
+  gameOverOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 30,
+    backgroundColor: 'rgba(7, 7, 20, 0.95)',
+    height: '100%',
   },
-  gameOverTitle: {
-    color: '#ef4444',
-    fontSize: 44,
-    fontWeight: 'bold',
-    letterSpacing: 3,
+  failedText: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#FF0055',
+    letterSpacing: 2,
+    marginBottom: 5,
   },
-  gameOverSub: {
-    color: '#94a3b8',
+  finalScoreText: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '500',
+    marginBottom: 5,
+  },
+  bestRecordText: {
     fontSize: 16,
-    marginVertical: 20,
-    textAlign: 'center',
+    color: '#707099',
+    marginBottom: 35,
+  },
+  newRecordNotice: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFE600',
+    marginBottom: 35,
   },
   restartBtn: {
-    backgroundColor: '#00f0ff',
+    backgroundColor: '#7209B7',
     paddingVertical: 14,
     paddingHorizontal: 36,
-    borderRadius: 30,
-    shadowColor: '#00f0ff',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    borderRadius: 25,
   },
   restartBtnText: {
-    color: '#060612',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+    letterSpacing: 2,
   },
 });
