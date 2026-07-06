@@ -19,7 +19,7 @@ const ASTEROID_SIZE = 110;
 const MOVEMENT_STEP = 35; 
 
 const ARENA_HEIGHT = SCREEN_HEIGHT; 
-const SHIP_Y = ARENA_HEIGHT - SHIP_HEIGHT - 10; 
+const SHIP_Y = ARENA_HEIGHT - SHIP_HEIGHT - 130; 
 const HIGH_SCORE_KEY = '@space_escape_highscore';
 
 export default function App() {
@@ -355,6 +355,7 @@ const styles = StyleSheet.create({
     width: SHIP_WIDTH,
     height: SHIP_HEIGHT,
     alignItems: 'center',
+    zIndex: 15, // Ensures the ship renders safely on top of the starfield and hazards
   },
   noseCone: {
     width: 0,
