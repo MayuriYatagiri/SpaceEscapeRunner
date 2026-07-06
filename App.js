@@ -18,7 +18,7 @@ const SHIP_HEIGHT = 50;
 const ASTEROID_SIZE = 110; 
 const MOVEMENT_STEP = 35; 
 
-const ARENA_HEIGHT = SCREEN_HEIGHT - 350; 
+const ARENA_HEIGHT = SCREEN_HEIGHT; 
 const SHIP_Y = ARENA_HEIGHT - SHIP_HEIGHT - 10; 
 const HIGH_SCORE_KEY = '@space_escape_highscore';
 
@@ -279,13 +279,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   gameArena: {
-    width: '100%',
-    position: 'relative',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: '#0D0D26', 
-    borderTopWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: '#1A1A3A',
-    overflow: 'hidden', // Clips scrolling background sheets perfectly to the play deck
   },
   starTile: {
     position: 'absolute',
@@ -397,10 +396,13 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '12deg' }],
   },
   controlPanel: {
+    position: 'absolute',
+    bottom: 40,
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
     paddingHorizontal: 25,
+    zIndex: 20, // Forces the buttons to stay on top of the starfield
   },
   actionButton: {
     backgroundColor: '#12122C',
