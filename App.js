@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
   Text, 
   View, 
   TouchableOpacity, 
   Dimensions, 
-  StatusBar 
+  StatusBar,
+  Animated
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -14,7 +15,6 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 // Dimensions Configuration
 const SHIP_WIDTH = 50;
 const SHIP_HEIGHT = 50;
-// 🚀 MASSIVE SCALE UP: Changed from 65 to 110 pixels to severely restrict safe zones!
 const ASTEROID_SIZE = 110; 
 const MOVEMENT_STEP = 35; 
 
@@ -23,6 +23,10 @@ const SHIP_Y = ARENA_HEIGHT - SHIP_HEIGHT - 10;
 const HIGH_SCORE_KEY = '@space_escape_highscore';
 
 export default function App() {
+  // --- ANIMATION STATES (BACKGROUND) ---
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // --- GAME STATES ---
   const [gameState, setGameState] = useState('PLAYING'); 
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
@@ -31,6 +35,45 @@ export default function App() {
   const [asteroidX, setAsteroidX] = useState(Math.random() * (SCREEN_WIDTH - ASTEROID_SIZE));
   const [asteroidY, setAsteroidY] = useState(0);
 
+  // --- BACKGROUND INFINITE SCROLL LOOP ---
+  useEffect(() => {
+    let backgroundAnimation;
+    
+    const startBackgroundScroll = () => {
+      scrollY.setValue(0);
+      backgroundAnimation = Animated.timing(scrollY, {
+        toValue: ARENA_HEIGHT, // Matches your specific arena viewport limit
+        duration: 6000,        // Speed of the falling background star field
+        useNativeDriver: true, // Executes directly on the hardware layer to keep JS loop free
+      });
+      
+      backgroundAnimation.start((result) => {
+        if (result.finished) {
+          startBackgroundScroll();
+        }
+      });
+    };
+
+    if (gameState === 'PLAYING') {
+      startBackgroundScroll();
+    }
+
+    return () => {
+      if (backgroundAnimation) backgroundAnimation.stop();
+    };
+  }, [gameState, scrollY]);
+
+  // Interpolated positional loops matching the bounds of the arena height
+  const translateTileA = scrollY.interpolate({
+    inputRange: [0, ARENA_HEIGHT],
+    outputRange: [0, ARENA_HEIGHT],
+  });
+  const translateTileB = scrollY.interpolate({
+    inputRange: [0, ARENA_HEIGHT],
+    outputRange: [-ARENA_HEIGHT, 0],
+  });
+
+  // --- HIGH SCORE PERSISTENCE ---
   useEffect(() => {
     loadSavedHighScore();
   }, []);
@@ -46,12 +89,12 @@ export default function App() {
     }
   };
 
+  // --- MAIN PHYSICS TICK RATE LOOP ---
   useEffect(() => {
     if (gameState !== 'PLAYING') return;
 
     const gameLoop = setInterval(() => {
       setAsteroidY((currentY) => {
-        // ⚡ SPEED BOOST: Increased falling velocity from 7 to 9 pixels per tick for less reaction time
         const nextY = currentY + 9; 
 
         if (nextY >= ARENA_HEIGHT - ASTEROID_SIZE) {
@@ -66,6 +109,7 @@ export default function App() {
     return () => clearInterval(gameLoop);
   }, [gameState]);
 
+  // --- COLLISION VERIFICATION ENGINE ---
   useEffect(() => {
     if (gameState !== 'PLAYING') return;
 
@@ -132,6 +176,16 @@ export default function App() {
       {/* PLAYABLE GAME ARENA */}
       <View style={[styles.gameArena, { height: ARENA_HEIGHT }]}>
         
+        {/* BACKGROUND LAYER: Parallax scrolling star field pattern sheet loops */}
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          <Animated.View style={[styles.starTile, { transform: [{ translateY: translateTileA }] }]}>
+            <StarFieldPattern />
+          </Animated.View>
+          <Animated.View style={[styles.starTile, { transform: [{ translateY: translateTileB }] }]}>
+            <StarFieldPattern />
+          </Animated.View>
+        </View>
+
         {gameState === 'PLAYING' ? (
           <>
             <View style={styles.hudRow}>
@@ -141,14 +195,13 @@ export default function App() {
 
             {/* UPGRADED MASSIVE ROUND TEXTURED ASTEROID */}
             <View style={[styles.asteroidBase, { left: asteroidX, top: asteroidY }]}>
-              {/* Scaled-up crater layouts for the giant asteroid crust texture */}
               <View style={[styles.crater, styles.craterGiant, { top: 15, left: 25 }]} />
               <View style={[styles.crater, styles.craterLarge, { top: 25, right: 20 }]} />
               <View style={[styles.crater, styles.craterMedium, { bottom: 25, left: 20 }]} />
               <View style={[styles.crater, styles.craterLarge, { bottom: 15, right: 30 }]} />
             </View>
 
-            {/* SPACESHIP */}
+            {/* SPACESHIP CONTAINER */}
             <View style={[styles.spaceshipContainer, { left: shipX, top: SHIP_Y }]}>
               <View style={styles.noseCone} />
               <View style={styles.fuselage} />
@@ -189,6 +242,19 @@ export default function App() {
   );
 }
 
+// Vector Starfield Component Sheet
+function StarFieldPattern() {
+  return (
+    <View style={styles.starField}>
+      <View style={[styles.star, { top: '10%', left: '15%' }]} />
+      <View style={[styles.star, { top: '30%', left: '80%', width: 3, height: 3 }]} />
+      <View style={[styles.star, { top: '50%', left: '45%', opacity: 0.4 }]} />
+      <View style={[styles.star, { top: '70%', left: '25%', width: 4, height: 4 }]} />
+      <View style={[styles.star, { top: '85%', left: '75%' }]} />
+    </View>
+  );
+}
+
 // GRAPHICS STYLE MATRIX
 const styles = StyleSheet.create({
   container: {
@@ -208,7 +274,7 @@ const styles = StyleSheet.create({
   },
   subtitleText: {
     fontSize: 14,
-    color: '#FF0055', // Threat red subtitle color
+    color: '#FF0055',
     letterSpacing: 4,
     marginTop: 2,
   },
@@ -219,6 +285,24 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderBottomWidth: 2,
     borderColor: '#1A1A3A',
+    overflow: 'hidden', // Clips scrolling background sheets perfectly to the play deck
+  },
+  starTile: {
+    position: 'absolute',
+    width: '100%',
+    height: ARENA_HEIGHT,
+  },
+  starField: {
+    flex: 1,
+    position: 'relative',
+  },
+  star: {
+    position: 'absolute',
+    width: 2,
+    height: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 50,
+    opacity: 0.6,
   },
   hudRow: {
     position: 'absolute',
@@ -245,14 +329,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: ASTEROID_SIZE,
     height: ASTEROID_SIZE,
-    backgroundColor: '#635654', // Darker density rock gray
-    borderRadius: ASTEROID_SIZE / 2, // Maintains perfect circle mapping
+    backgroundColor: '#635654', 
+    borderRadius: ASTEROID_SIZE / 2, 
     borderWidth: 3,
     borderColor: '#3D3332', 
   },
   crater: {
     position: 'absolute',
-    backgroundColor: '#2E2524', // Deep crater shadow
+    backgroundColor: '#2E2524', 
     borderRadius: 100,
   },
   craterGiant: {
@@ -339,6 +423,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(7, 7, 20, 0.95)',
     height: '100%',
+    width: '100%',
   },
   failedText: {
     fontSize: 36,
